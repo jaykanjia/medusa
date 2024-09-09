@@ -20,6 +20,7 @@ import {
   ProductExportPriceData,
 } from "./types"
 import {
+  CustomProductVariant,
   productCategoriesColumnsDefinition,
   productColumnsDefinition,
   productSalesChannelColumnsDefinition,
@@ -182,6 +183,7 @@ export default class ProductExportStrategy extends AbstractBatchJobStrategy {
       let dynamicImageColumnCount = 0
       let dynamicSalesChannelsColumnCount = 0
       let dynamicProductCategoriesColumnCount = 0
+      let dynamicVariantImageColumnCount = 0
       let pricesData = new Set<string>()
 
       while (offset < productCount) {
@@ -224,6 +226,10 @@ export default class ProductExportStrategy extends AbstractBatchJobStrategy {
           shapeData.productCategoriesColumnCount,
           dynamicProductCategoriesColumnCount
         )
+        dynamicVariantImageColumnCount = Math.max(
+          shapeData.dynamicVariantImageColumnCount,
+          dynamicVariantImageColumnCount
+        )
         pricesData = new Set([...pricesData, ...shapeData.pricesData])
 
         offset += products.length
@@ -239,6 +245,7 @@ export default class ProductExportStrategy extends AbstractBatchJobStrategy {
               dynamicOptionColumnCount,
               dynamicSalesChannelsColumnCount,
               dynamicProductCategoriesColumnCount,
+              dynamicVariantImageColumnCount,
               prices: [...pricesData].map((stringifyData) =>
                 JSON.parse(stringifyData)
               ),
@@ -370,8 +377,10 @@ export default class ProductExportStrategy extends AbstractBatchJobStrategy {
       dynamicOptionColumnCount,
       dynamicSalesChannelsColumnCount,
       dynamicProductCategoriesColumnCount,
+      dynamicVariantImageColumnCount,
     } = batchJob?.context?.shape ?? {}
 
+    this.appendVariantImagesDescriptors(dynamicVariantImageColumnCount)
     this.appendMoneyAmountDescriptors(prices)
     this.appendOptionsDescriptors(dynamicOptionColumnCount)
     this.appendImagesDescriptors(dynamicImageColumnCount)
@@ -510,6 +519,25 @@ export default class ProductExportStrategy extends AbstractBatchJobStrategy {
     }
   }
 
+  private appendVariantImagesDescriptors(maxVariantImagesCount: number): void {
+    const columnNameBuilder = (this.columnsDefinition["Variant Image Url"]!
+      .exportDescriptor as DynamicProductExportDescriptor)!
+      .buildDynamicColumnName
+
+    for (let i = 0; i < maxVariantImagesCount; ++i) {
+      const columnName = columnNameBuilder(i)
+
+      this.columnsDefinition[columnName] = {
+        name: columnName,
+        exportDescriptor: {
+          accessor: (variant: CustomProductVariant) =>
+            variant?.images[i]?.url ?? "",
+          entityName: "variant",
+        },
+      }
+    }
+  }
+
   private appendOptionsDescriptors(maxOptionsCount: number): void {
     for (let i = 0; i < maxOptionsCount; ++i) {
       const columnNameNameBuilder = (this.columnsDefinition["Option Name"]!
@@ -639,7 +667,9 @@ export default class ProductExportStrategy extends AbstractBatchJobStrategy {
         }
         if (columnSchema.entityName === "variant") {
           const formattedContent = csvCellContentFormatter(
-            columnSchema.accessor(variant, { product: product })
+            columnSchema.accessor(variant as CustomProductVariant, {
+              product: product,
+            })
           )
           variantLineData.push(formattedContent)
         }
@@ -687,15 +717,18 @@ export default class ProductExportStrategy extends AbstractBatchJobStrategy {
     salesChannelsColumnCount: number
     productCategoriesColumnCount: number
     pricesData: Set<string>
+    dynamicVariantImageColumnCount: number
   } {
     let optionColumnCount = 0
     let imageColumnCount = 0
     let salesChannelsColumnCount = 0
     let productCategoriesColumnCount = 0
+    let dynamicVariantImageColumnCount = 0
     const pricesData = new Set<string>()
 
     // Retrieve the highest count of each object to build the dynamic columns later
-    for (const product of products) {
+    for (const p of products) {
+      const product = p as Product & { variants: CustomProductVariant[] }
       const optionsCount = product?.options?.length ?? 0
       optionColumnCount = Math.max(optionColumnCount, optionsCount)
 
@@ -724,6 +757,12 @@ export default class ProductExportStrategy extends AbstractBatchJobStrategy {
       }
 
       for (const variant of product?.variants ?? []) {
+        const variantImageCount = variant?.images?.length ?? 0
+        dynamicVariantImageColumnCount = Math.max(
+          dynamicVariantImageColumnCount,
+          variantImageCount
+        )
+
         if (variant.prices?.length) {
           variant.prices.forEach((price) => {
             pricesData.add(
@@ -749,6 +788,7 @@ export default class ProductExportStrategy extends AbstractBatchJobStrategy {
       salesChannelsColumnCount,
       productCategoriesColumnCount,
       pricesData,
+      dynamicVariantImageColumnCount,
     }
   }
 }

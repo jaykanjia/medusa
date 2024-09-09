@@ -1,4 +1,4 @@
-import { Product, ProductVariant } from "../../../../models"
+import { Image, Product, ProductVariant } from "../../../../models"
 import {
   ProductColumnDefinition,
   ProductExportPriceData,
@@ -6,6 +6,11 @@ import {
   TParsedProductImportRowData,
 } from "./index"
 import { CsvSchema, CsvSchemaColumn } from "../../../../interfaces/csv-parser"
+
+export type CustomProductVariant = ProductVariant & {
+  thumbnail: string
+  images: Image[]
+}
 
 export const productColumnsDefinition: ProductColumnDefinition = {
   "Product Id": {
@@ -301,6 +306,7 @@ export const productColumnsDefinition: ProductColumnDefinition = {
       entityName: "variant",
     },
   },
+
   "Variant SKU": {
     name: "Variant SKU",
 
@@ -613,6 +619,41 @@ export const productColumnsDefinition: ProductColumnDefinition = {
       isDynamic: true,
       buildDynamicColumnName: (index: number) => {
         return `Image ${index + 1} Url`
+      },
+    },
+  },
+
+  // VARIANT IMAGES
+
+  "Variant Image Url": {
+    name: "Variant Image Url",
+    importDescriptor: {
+      match: /Variant Image \d+ Url/,
+      reducer: (
+        builtLine: TParsedProductImportRowData,
+        key,
+        value
+      ): TBuiltProductImportLine => {
+        builtLine["variant.images"] = builtLine["variant.images"] || []
+
+        if (typeof value === "undefined" || value === null) {
+          return builtLine
+        }
+
+        const images = builtLine["variant.images"] as Record<
+          string,
+          string | number
+        >[]
+
+        images.push({ url: value })
+
+        return builtLine
+      },
+    },
+    exportDescriptor: {
+      isDynamic: true,
+      buildDynamicColumnName: (index: number) => {
+        return `Variant Image ${index + 1} Url`
       },
     },
   },

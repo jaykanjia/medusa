@@ -16,6 +16,7 @@ import {
   ShippingProfileService,
 } from "../../../../services"
 import { Selector } from "../../../../types/common"
+import { CustomProductVariant } from "./columns-definition"
 
 export type ProductExportInjectedDependencies = {
   manager: EntityManager
@@ -41,6 +42,7 @@ export type ProductExportBatchJobContext = {
     dynamicImageColumnCount: number
     dynamicSalesChannelsColumnCount: number
     dynamicProductCategoriesColumnCount: number
+    dynamicVariantImageColumnCount: number
   }
   list_config?: {
     select?: string[]
@@ -75,7 +77,7 @@ export type ProductExportDescriptor =
     }
   | {
       accessor: (
-        variant: ProductVariant,
+        variant: CustomProductVariant,
         context?: { product?: Product }
       ) => string
       entityName: Extract<ProductExportColumnSchemaEntity, "variant">
