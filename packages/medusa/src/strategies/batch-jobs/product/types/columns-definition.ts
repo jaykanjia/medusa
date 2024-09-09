@@ -12,6 +12,13 @@ export type CustomProductVariant = ProductVariant & {
   images: Image[]
 }
 
+export type CustomProduct = Product & {
+  additions_details: string
+  additions_details_title: string
+  additions_details_content: string
+  grid_view: boolean
+}
+
 export const productColumnsDefinition: ProductColumnDefinition = {
   "Product Id": {
     name: "Product Id",
@@ -61,6 +68,50 @@ export const productColumnsDefinition: ProductColumnDefinition = {
     },
     exportDescriptor: {
       accessor: (product: Product): string => product?.description ?? "",
+      entityName: "product",
+    },
+  },
+  "Product Additional Details": {
+    name: "Product Additional Details",
+    importDescriptor: {
+      mapTo: "product?.additions_details",
+    },
+    exportDescriptor: {
+      accessor: (product: Product): string =>
+        (product as CustomProduct)?.additions_details ?? "",
+      entityName: "product",
+    },
+  },
+  "Product Additional Details Title": {
+    name: "Product Additional Details Title",
+    importDescriptor: {
+      mapTo: "product?.additions_details_title",
+    },
+    exportDescriptor: {
+      accessor: (product: Product): string =>
+        (product as CustomProduct)?.additions_details_title ?? "",
+      entityName: "product",
+    },
+  },
+  "Product Additional Details Content": {
+    name: "Product Additional Details Content",
+    importDescriptor: {
+      mapTo: "product?.additions_details_content",
+    },
+    exportDescriptor: {
+      accessor: (product: Product): string =>
+        (product as CustomProduct)?.additions_details_content ?? "",
+      entityName: "product",
+    },
+  },
+  "Product Grid View": {
+    name: "Product Grid View",
+    importDescriptor: {
+      mapTo: "product?.additions_details_content",
+    },
+    exportDescriptor: {
+      accessor: (product: Product): string =>
+        (product as CustomProduct)?.grid_view.toString() ?? "",
       entityName: "product",
     },
   },
@@ -306,6 +357,18 @@ export const productColumnsDefinition: ProductColumnDefinition = {
       entityName: "variant",
     },
   },
+  "Variant Thumbnail": {
+    name: "Variant Thumbnail",
+
+    importDescriptor: {
+      mapTo: "variant.thumbnail",
+    },
+    exportDescriptor: {
+      accessor: (variant: ProductVariant): string =>
+        (variant as CustomProductVariant)?.thumbnail ?? "",
+      entityName: "variant",
+    },
+  },
 
   "Variant SKU": {
     name: "Variant SKU",
@@ -523,7 +586,6 @@ export const productColumnsDefinition: ProductColumnDefinition = {
       },
     },
   },
-
   // PRICES
 
   "Price Region": {
