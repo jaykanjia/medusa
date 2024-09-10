@@ -24,7 +24,10 @@ import {
   ShippingProfileService,
 } from "../../../services"
 import CsvParser from "../../../services/csv-parser"
-import { CreateProductInput } from "../../../types/product"
+import {
+  CreateProductInput,
+  CreateProductProductVariantInput,
+} from "../../../types/product"
 import { CreateProductVariantInput } from "../../../types/product-variant"
 import {
   OperationType,
@@ -329,10 +332,15 @@ class ProductImportStrategy extends AbstractBatchJobStrategy {
         .withTransaction(manager)
         .retrieve(batchJobId)) as ProductImportBatchJob
 
+      console.log("createProducts")
       await this.createProducts(batchJob)
+      console.log("updateProducts")
       await this.updateProducts(batchJob)
+      console.log("createVariants")
       await this.createVariants(batchJob)
+      console.log("updateVariants")
       await this.updateVariants(batchJob)
+      console.log("finalize")
       await this.finalize(batchJob)
     })
   }
@@ -419,6 +427,7 @@ class ProductImportStrategy extends AbstractBatchJobStrategy {
    * @param batchJob - The current batch job being processed.
    */
   private async createProducts(batchJob: ProductImportBatchJob): Promise<void> {
+    console.log("createProducts")
     if (!batchJob.result.operations[OperationType.ProductCreate]) {
       return
     }
@@ -434,6 +443,8 @@ class ProductImportStrategy extends AbstractBatchJobStrategy {
       OperationType.ProductCreate
     )
 
+    console.log("productOps", productOps)
+
     const productServiceTx =
       this.productService_.withTransaction(transactionManager)
     const productCollectionServiceTx =
@@ -448,6 +459,8 @@ class ProductImportStrategy extends AbstractBatchJobStrategy {
 
     for (const productOp of productOps) {
       const productData = transformProductData(productOp)
+
+      console.log("productData create", productData)
 
       try {
         if (isSalesChannelsFeatureOn && productOp["product.sales_channels"]) {
@@ -495,14 +508,27 @@ class ProductImportStrategy extends AbstractBatchJobStrategy {
           })
         } else {
           // TODO: we should only pass the expected data and should not have to cast the entire object. Here we are passing everything contained in productData
+          console.log("productData create", productData.variants?.[0]?.images)
+
           await productServiceTx.create(
-            productData as unknown as CreateProductInput
+            productData as unknown as CreateProductInput & {
+              additions_details: string
+              additions_details_title: string
+              additions_details_content: string
+              grid_view: boolean
+              variants: (CreateProductProductVariantInput & {
+                thumbnail: string
+                images: string[]
+              })[]
+            }
           )
         }
       } catch (e) {
+        console.error("Error creating product:", e.message)
         ProductImportStrategy.throwDescriptiveError(productOp, e.message)
       }
 
+      console.log("productData create ends")
       await this.updateProgress(batchJob.id)
     }
   }
@@ -627,15 +653,26 @@ class ProductImportStrategy extends AbstractBatchJobStrategy {
       OperationType.VariantCreate
     )
 
+    console.log("variantOps", variantOps)
+
     for (const variantOp of variantOps) {
       try {
+        console.log("variantOp", variantOp)
         const variant = transformVariantData(variantOp)
+        console.log("transformVariantData", variant)
 
         const product = await this.productService_
           .withTransaction(transactionManager)
           .retrieveByHandle(variantOp["product.handle"] as string, {
-            relations: ["variants", "variants.options", "options"],
+            relations: [
+              "variants",
+              "variants.options",
+              "options",
+              "variants.images",
+            ],
           })
+
+        // console.log("product", product)
 
         const optionIds =
           (variantOp["product.options"] as Record<string, string>[])?.map(
@@ -654,6 +691,8 @@ class ProductImportStrategy extends AbstractBatchJobStrategy {
 
         delete variant.id
         delete variant.product
+
+        console.log("created variant", variant)
 
         if (isMedusaV2Enabled) {
           const createProductVariantsWorkflow =
@@ -677,9 +716,21 @@ class ProductImportStrategy extends AbstractBatchJobStrategy {
         } else {
           await this.productVariantService_
             .withTransaction(transactionManager)
-            .create(product!, variant as unknown as CreateProductVariantInput)
+            .create(product!, {
+              ...variant,
+              images:
+                Array.isArray(variant.images) && variant.images.length
+                  ? variant.images.map((image) => ({
+                      url: image,
+                    }))
+                  : [],
+            } as unknown as CreateProductVariantInput & {
+              thumbnail?: string
+              images: { url: string }[]
+            })
         }
 
+        console.log("Created variant ends")
         await this.updateProgress(batchJob.id)
       } catch (e) {
         ProductImportStrategy.throwDescriptiveError(variantOp, e.message)
@@ -693,6 +744,7 @@ class ProductImportStrategy extends AbstractBatchJobStrategy {
    * @param batchJob - The current batch job being processed.
    */
   private async updateVariants(batchJob: ProductImportBatchJob): Promise<void> {
+    console.log("Starting updateVariants for batchJob:", batchJob.id)
     if (!batchJob.result.operations[OperationType.VariantUpdate]) {
       return
     }
@@ -713,15 +765,20 @@ class ProductImportStrategy extends AbstractBatchJobStrategy {
 
     for (const variantOp of variantOps) {
       try {
+        console.log("Processing variantOp:", variantOp)
         const product = await productServiceTx.retrieveByHandle(
           variantOp["product.handle"] as string
         )
 
         await this.prepareVariantOptions(variantOp, product.id!)
 
+        console.log("Prepared variant options:", variantOp)
+
         const updateData = transformVariantData(variantOp)
         delete updateData.product
         delete updateData["product.handle"]
+
+        console.log("Updated variant:", updateData)
 
         if (isMedusaV2Enabled) {
           const updateProductVariantsWorkflow =
@@ -748,8 +805,11 @@ class ProductImportStrategy extends AbstractBatchJobStrategy {
             .update(variantOp["variant.id"] as string, updateData)
         }
       } catch (e) {
+        console.error("Error updating variant:", e.message)
         ProductImportStrategy.throwDescriptiveError(variantOp, e.message)
       }
+
+      console.log("Update variant ends")
 
       await this.updateProgress(batchJob.id)
     }
@@ -844,6 +904,7 @@ class ProductImportStrategy extends AbstractBatchJobStrategy {
         data += chunk
       })
       readableStream.on("end", () => {
+        console.log({ data: JSON.parse(data)["variant.images"] })
         resolve(JSON.parse(data))
       })
       readableStream.on("error", () => {

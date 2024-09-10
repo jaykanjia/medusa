@@ -74,7 +74,7 @@ export const productColumnsDefinition: ProductColumnDefinition = {
   "Product Additional Details": {
     name: "Product Additional Details",
     importDescriptor: {
-      mapTo: "product?.additions_details",
+      mapTo: "product.additions_details",
     },
     exportDescriptor: {
       accessor: (product: Product): string =>
@@ -85,7 +85,7 @@ export const productColumnsDefinition: ProductColumnDefinition = {
   "Product Additional Details Title": {
     name: "Product Additional Details Title",
     importDescriptor: {
-      mapTo: "product?.additions_details_title",
+      mapTo: "product.additions_details_title",
     },
     exportDescriptor: {
       accessor: (product: Product): string =>
@@ -96,7 +96,7 @@ export const productColumnsDefinition: ProductColumnDefinition = {
   "Product Additional Details Content": {
     name: "Product Additional Details Content",
     importDescriptor: {
-      mapTo: "product?.additions_details_content",
+      mapTo: "product.additions_details_content",
     },
     exportDescriptor: {
       accessor: (product: Product): string =>
@@ -107,7 +107,7 @@ export const productColumnsDefinition: ProductColumnDefinition = {
   "Product Grid View": {
     name: "Product Grid View",
     importDescriptor: {
-      mapTo: "product?.additions_details_content",
+      mapTo: "product.grid_view",
     },
     exportDescriptor: {
       accessor: (product: Product): string =>
@@ -369,7 +369,54 @@ export const productColumnsDefinition: ProductColumnDefinition = {
       entityName: "variant",
     },
   },
+  // VARIANT IMAGES
 
+  "Variant Image Url": {
+    name: "Variant Image Url",
+    importDescriptor: {
+      match: /Variant Image \d+ Url/,
+      reducer: (builtLine: any, key, value): TBuiltProductImportLine => {
+        builtLine["variant.images"] = builtLine["variant.images"] || []
+
+        if (typeof value === "undefined" || value === null) {
+          return builtLine
+        }
+
+        builtLine["variant.images"].push(value)
+
+        return builtLine
+      },
+    },
+    // importDescriptor: {
+    //   match: /Variant Image \d+ Url/,
+    // reducer: (
+    //   builtLine: TParsedProductImportRowData,
+    //   key,
+    //   value
+    // ): TBuiltProductImportLine => {
+    // builtLine["variant.images"] = builtLine["variant.images"] || []
+
+    // if (typeof value === "undefined" || value === null) {
+    //   return builtLine
+    // }
+
+    // const images = builtLine["variant.images"] as Record<
+    //   string,
+    //   string | number
+    // >[]
+
+    // images.push(value)
+
+    // return builtLine
+    // },
+    // },
+    exportDescriptor: {
+      isDynamic: true,
+      buildDynamicColumnName: (index: number) => {
+        return `Variant Image ${index + 1} Url`
+      },
+    },
+  },
   "Variant SKU": {
     name: "Variant SKU",
 
@@ -681,41 +728,6 @@ export const productColumnsDefinition: ProductColumnDefinition = {
       isDynamic: true,
       buildDynamicColumnName: (index: number) => {
         return `Image ${index + 1} Url`
-      },
-    },
-  },
-
-  // VARIANT IMAGES
-
-  "Variant Image Url": {
-    name: "Variant Image Url",
-    importDescriptor: {
-      match: /Variant Image \d+ Url/,
-      reducer: (
-        builtLine: TParsedProductImportRowData,
-        key,
-        value
-      ): TBuiltProductImportLine => {
-        builtLine["variant.images"] = builtLine["variant.images"] || []
-
-        if (typeof value === "undefined" || value === null) {
-          return builtLine
-        }
-
-        const images = builtLine["variant.images"] as Record<
-          string,
-          string | number
-        >[]
-
-        images.push({ url: value })
-
-        return builtLine
-      },
-    },
-    exportDescriptor: {
-      isDynamic: true,
-      buildDynamicColumnName: (index: number) => {
-        return `Variant Image ${index + 1} Url`
       },
     },
   },
